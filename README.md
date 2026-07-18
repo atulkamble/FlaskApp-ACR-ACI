@@ -1,4 +1,4 @@
-# Module – Azure Container Instances (ACI) & Azure Container Registry (ACR)
+# Azure Container Instances (ACI) & Azure Container Registry (ACR) Project
 
 ## Learning Objectives
 
