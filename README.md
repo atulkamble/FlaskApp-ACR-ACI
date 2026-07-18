@@ -332,13 +332,13 @@ Password
 ## Step 5 – Clone Sample Project
 
 ```bash
-git clone https://github.com/atulkamble/Dockerfiles.git
+git clone https://github.com/atulkamble/FlaskApp-ACR-ACI.git
 ```
 
 Move into project
 
 ```bash
-cd Dockerfiles/01-python-flask-app
+cd FlaskApp-ACR-ACI
 ```
 
 Open VS Code
