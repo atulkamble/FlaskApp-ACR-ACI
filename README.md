@@ -1,3 +1,303 @@
+# ACR Deployment + Azure DevOps Pipeline
+
+## 1. Prerequisite
+
+Keep **Docker Desktop running**.
+
+```bash
+docker --version
+docker buildx version
+az --version
+```
+
+## 2. Azure Login
+
+```bash
+az login
+```
+
+Login to ACR:
+
+```bash
+az acr login --name atulkamble
+```
+
+Registry:
+
+```text
+atulkamble.azurecr.io
+```
+
+## 3. Clone Repository
+
+```bash
+git clone https://github.com/atulkamble/FlaskApp-ACR-ACI.git
+cd FlaskApp-ACR-ACI
+```
+
+## 4. Test Python Application
+
+```bash
+python --version
+pip --version
+pip install -r requirements.txt
+python app.py
+```
+
+Open:
+
+```text
+http://localhost:5000
+```
+
+## 5. Build Docker Image
+
+### Single Platform — AMD64
+
+```bash
+docker buildx build \
+  --platform linux/amd64 \
+  -t atulkamble.azurecr.io/cloudnautic/pythonapp:latest \
+  --load .
+```
+
+Check:
+
+```bash
+docker images
+```
+
+Push:
+
+```bash
+docker push atulkamble.azurecr.io/cloudnautic/pythonapp:latest
+```
+
+## 6. Multi-Platform Build — AMD64 + ARM64
+
+For multiple architectures, use `--push` directly:
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t atulkamble.azurecr.io/cloudnautic/pythonapp:latest \
+  --push .
+```
+
+Remember:
+
+```text
+Single Platform → --load → docker push
+Multi Platform  → --push
+```
+
+## 7. Verify Image in ACR
+
+List repositories:
+
+```bash
+az acr repository list \
+  --name atulkamble \
+  --output table
+```
+
+Check tags:
+
+```bash
+az acr repository show-tags \
+  --name atulkamble \
+  --repository cloudnautic/pythonapp \
+  --output table
+```
+
+## 8. Pull & Run Image
+
+```bash
+docker pull atulkamble.azurecr.io/cloudnautic/pythonapp:latest
+```
+
+Run:
+
+```bash
+docker run -d \
+  --name pythonapp \
+  -p 5000:5000 \
+  atulkamble.azurecr.io/cloudnautic/pythonapp:latest
+```
+
+Verify:
+
+```bash
+docker ps
+curl http://localhost:5000
+```
+
+Browser:
+
+```text
+http://localhost:5000
+```
+
+---
+
+# 9. Azure DevOps Service Connection
+
+Go to:
+
+```text
+Azure DevOps
+   ↓
+Project Settings
+   ↓
+Service Connections
+   ↓
+New Service Connection
+   ↓
+Docker Registry
+   ↓
+Azure Container Registry
+```
+
+Use:
+
+```text
+Authentication:
+Workload Identity Federation
+
+ACR:
+atulkamble
+
+Service Connection Name:
+acr-connection
+```
+
+### Important
+
+For `Docker@2`:
+
+```yaml
+containerRegistry: "$(serviceConnection)"
+```
+
+use a **Docker Registry** service connection.
+
+```text
+✅ Docker Registry
+   └── ACR
+       └── Workload Identity Federation
+
+❌ Azure Resource Manager (ARM)
+```
+
+`Docker@2` expects:
+
+```text
+dockerregistry
+```
+
+not:
+
+```text
+azurerm
+```
+
+---
+
+# 10. azure-pipelines.yml
+
+Create:
+
+```text
+azure-pipelines.yml
+```
+
+Use exactly:
+
+```yaml
+trigger:
+  - main
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  imageName: "cloudnautic/pythonapp"
+  serviceConnection: "acr-connection"
+
+steps:
+  - task: Docker@2
+    displayName: "Build and Push Docker Image to ACR"
+    inputs:
+      containerRegistry: "$(serviceConnection)"
+      repository: "$(imageName)"
+      command: "buildAndPush"
+      Dockerfile: "**/Dockerfile"
+      tags: |
+        $(Build.BuildId)
+        latest
+```
+
+This matches the current pipeline in your repository.
+
+## 11. Pipeline Flow
+
+```text
+Developer
+    │
+    │ git push
+    ▼
+GitHub Repository
+FlaskApp-ACR-ACI
+    │
+    │ main branch trigger
+    ▼
+Azure DevOps Pipeline
+    │
+    ▼
+Microsoft Hosted Agent
+ubuntu-latest
+    │
+    ▼
+Docker@2
+    │
+    ├── Build Docker Image
+    │
+    └── Push Docker Image
+    │
+    ▼
+Docker Registry
+Service Connection
+acr-connection
+    │
+    ▼
+Azure Container Registry
+atulkamble.azurecr.io
+    │
+    ▼
+cloudnautic/pythonapp
+    │
+    ├── :latest
+    │
+    └── :$(Build.BuildId)
+```
+
+### Key Points to Remember
+
+```text
+ACR Name            : atulkamble
+Login Server        : atulkamble.azurecr.io
+Repository          : cloudnautic/pythonapp
+Service Connection  : acr-connection
+Pipeline Task       : Docker@2
+Command             : buildAndPush
+Agent               : ubuntu-latest
+Trigger             : main
+Tags                : Build.BuildId + latest
+```
+
+Also, do not put ACR passwords, PATs, tokens, or other credentials directly in `azure-pipelines.yml`; use the service connection for authentication.
+
+
 # Azure Container Instances (ACI) & Azure Container Registry (ACR) Project
 
 ## Learning Objectives
