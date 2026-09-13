@@ -1,21 +1,20 @@
 trigger:
-- main
+  - main
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: "ubuntu-latest"
 
 variables:
-  imageName: 'myapp'
+  imageName: "atulkamble.azurecr.io/cloudnautic/pythonapp"
 
 steps:
-
-- task: Docker@2
-  displayName: 'Build and Push Docker Image to ACR'
-  inputs:
-    containerRegistry: 'acr-service-connection'
-    repository: '$(imageName)'
-    command: 'buildAndPush'
-    Dockerfile: '**/Dockerfile'
-    tags: |
-      $(Build.BuildId)
-      latest
+  - task: Docker@2
+    displayName: "Build and Push Docker Image to ACR"
+    inputs:
+      containerRegistry: "acr-service-connection"
+      repository: "$(imageName)"
+      command: "buildAndPush"
+      Dockerfile: "**/Dockerfile"
+      tags: |
+        $(Build.BuildId)
+        latest
