@@ -11,7 +11,7 @@ steps:
   - task: Docker@2
     displayName: "Build and Push Docker Image to ACR"
     inputs:
-      containerRegistry: "acr-service-connection"
+      containerRegistry: "acr-connection"
       repository: "$(imageName)"
       command: "buildAndPush"
       Dockerfile: "**/Dockerfile"
