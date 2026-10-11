@@ -1,45 +1,51 @@
-# ACR Deployment + Azure DevOps Pipeline
+# Flask App on Azure
 
-## 1. Prerequisite
+A lightweight Flask application with a modern landing page, ready to be containerized and deployed to Azure Container Registry (ACR) and Azure Container Instances (ACI).
 
-Keep **Docker Desktop running**.
+## Tech Stack
+
+- Python 3.12
+- Flask 3.0.3
+- Docker
+- Azure Container Registry (ACR)
+- Azure Container Instances (ACI)
+- Azure DevOps Pipelines
+- HTML5 + CSS3
+
+## Project Structure
+
+```text
+FlaskApp-ACR-ACI/
+├── app.py
+├── requirements.txt
+├── Dockerfile
+├── templates/
+│   └── index.html
+├── README.md
+└── azure-pipelines.yml
+```
+
+## Prerequisites
+
+- Docker Desktop running
+- Azure CLI installed and authenticated
+- Access to an Azure subscription
+- Git installed
 
 ```bash
 docker --version
 docker buildx version
 az --version
+python --version
 ```
 
-## 2. Azure Login
-
-```bash
-az login
-```
-
-Login to ACR:
-
-```bash
-az acr login --name atulkamble
-```
-
-Registry:
-
-```text
-atulkamble.azurecr.io
-```
-
-## 3. Clone Repository
+## Local Development
 
 ```bash
 git clone https://github.com/atulkamble/FlaskApp-ACR-ACI.git
 cd FlaskApp-ACR-ACI
-```
-
-## 4. Test Python Application
-
-```bash
-python --version
-pip --version
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
@@ -50,9 +56,14 @@ Open:
 http://localhost:5000
 ```
 
-## 5. Build Docker Image
+## Application Endpoints
 
-### Single Platform — AMD64
+- `/` - Modern landing page
+- `/health` - Health check endpoint returning JSON status
+
+## Docker Build
+
+### Single Platform (AMD64)
 
 ```bash
 docker buildx build \
@@ -61,21 +72,7 @@ docker buildx build \
   --load .
 ```
 
-Check:
-
-```bash
-docker images
-```
-
-Push:
-
-```bash
-docker push atulkamble.azurecr.io/cloudnautic/pythonapp:latest
-```
-
-## 6. Multi-Platform Build — AMD64 + ARM64
-
-For multiple architectures, use `--push` directly:
+### Multi-Platform (AMD64 + ARM64)
 
 ```bash
 docker buildx build \
@@ -84,134 +81,49 @@ docker buildx build \
   --push .
 ```
 
-Remember:
+## Azure Login and ACR Setup
+
+```bash
+az login
+az acr login --name atulkamble
+```
+
+Registry:
 
 ```text
-Single Platform → --load → docker push
-Multi Platform  → --push
+atulkamble.azurecr.io
 ```
 
-## 7. Verify Image in ACR
-
-List repositories:
+## Verify Image in Azure Container Registry
 
 ```bash
-az acr repository list \
-  --name atulkamble \
-  --output table
-```
-
-Check tags:
-
-```bash
+az acr repository list --name atulkamble --output table
 az acr repository show-tags \
   --name atulkamble \
   --repository cloudnautic/pythonapp \
   --output table
 ```
 
-## 8. Pull & Run Image
+## Run Docker Image Locally
 
 ```bash
 docker pull atulkamble.azurecr.io/cloudnautic/pythonapp:latest
-```
-
-Run:
-
-```bash
 docker run -d \
   --name pythonapp \
   -p 5000:5000 \
   atulkamble.azurecr.io/cloudnautic/pythonapp:latest
 ```
 
-Verify:
+Check:
 
 ```bash
 docker ps
 curl http://localhost:5000
 ```
 
-Browser:
+## Azure DevOps Pipeline
 
-```text
-http://localhost:5000
-```
-
----
-
-# 9. Azure DevOps Service Connection
-
-Go to:
-
-```text
-Azure DevOps
-   ↓
-Project Settings
-   ↓
-Service Connections
-   ↓
-New Service Connection
-   ↓
-Docker Registry
-   ↓
-Azure Container Registry
-```
-
-Use:
-
-```text
-Authentication:
-Workload Identity Federation
-
-ACR:
-atulkamble
-
-Service Connection Name:
-acr-connection
-```
-
-### Important
-
-For `Docker@2`:
-
-```yaml
-containerRegistry: "$(serviceConnection)"
-```
-
-use a **Docker Registry** service connection.
-
-```text
-✅ Docker Registry
-   └── ACR
-       └── Workload Identity Federation
-
-❌ Azure Resource Manager (ARM)
-```
-
-`Docker@2` expects:
-
-```text
-dockerregistry
-```
-
-not:
-
-```text
-azurerm
-```
-
----
-
-# 10. azure-pipelines.yml
-
-Create:
-
-```text
-azure-pipelines.yml
-```
-
-Use exactly:
+Azure DevOps can be configured to build and push the container image to ACR on every push to the main branch.
 
 ```yaml
 trigger:
@@ -237,167 +149,47 @@ steps:
         latest
 ```
 
-This matches the current pipeline in your repository.
+### Service Connection Setup
 
-## 11. Pipeline Flow
+In Azure DevOps:
 
-```text
-Developer
-    │
-    │ git push
-    ▼
-GitHub Repository
-FlaskApp-ACR-ACI
-    │
-    │ main branch trigger
-    ▼
-Azure DevOps Pipeline
-    │
-    ▼
-Microsoft Hosted Agent
-ubuntu-latest
-    │
-    ▼
-Docker@2
-    │
-    ├── Build Docker Image
-    │
-    └── Push Docker Image
-    │
-    ▼
-Docker Registry
-Service Connection
-acr-connection
-    │
-    ▼
-Azure Container Registry
-atulkamble.azurecr.io
-    │
-    ▼
-cloudnautic/pythonapp
-    │
-    ├── :latest
-    │
-    └── :$(Build.BuildId)
-```
+- Project Settings
+- Service Connections
+- New Service Connection
+- Docker Registry
+- Azure Container Registry
 
-### Key Points to Remember
+Use a Docker Registry service connection, not an Azure Resource Manager (ARM) connection, for `Docker@2`.
+
+## Azure Container Instances (ACI)
+
+This project is designed to work with Azure Container Instances for quick deployment of the containerized app.
+
+Typical flow:
 
 ```text
-ACR Name            : atulkamble
-Login Server        : atulkamble.azurecr.io
-Repository          : cloudnautic/pythonapp
-Service Connection  : acr-connection
-Pipeline Task       : Docker@2
-Command             : buildAndPush
-Agent               : ubuntu-latest
-Trigger             : main
-Tags                : Build.BuildId + latest
+Source code
+  ↓
+Dockerfile
+  ↓
+Docker build
+  ↓
+ACR push
+  ↓
+ACI deploy
+  ↓
+Public endpoint
 ```
 
-Also, do not put ACR passwords, PATs, tokens, or other credentials directly in `azure-pipelines.yml`; use the service connection for authentication.
+## Notes
 
+- Do not hardcode credentials into pipeline YAML files.
+- Use Azure DevOps service connections for secure authentication.
+- Keep Docker Desktop running while developing locally.
 
-# Azure Container Instances (ACI) & Azure Container Registry (ACR) Project
+## License
 
-## Learning Objectives
-
-After completing this module, you will be able to:
-
-* Understand Azure Container Instances (ACI)
-* Understand Azure Container Registry (ACR)
-* Build Docker images using a Dockerfile
-* Push container images to Azure Container Registry
-* Deploy containers directly into Azure Container Instances
-* Access applications using a Public IP Address
-
----
-
-# Theory
-
-## What is Azure Container Instances (ACI)?
-
-Azure Container Instances (ACI) is a **Platform as a Service (PaaS)** offering that allows you to run Docker containers without managing virtual machines or Kubernetes clusters.
-
-### Features
-
-* No VM management
-* Fast deployment (seconds)
-* Public or Private IP
-* Linux and Windows containers
-* Pay only while the container is running
-
----
-
-## What is Azure Container Registry (ACR)?
-
-Azure Container Registry is Microsoft's private Docker Registry.
-
-It stores container images securely inside Azure.
-
-### Similar To
-
-| Public Registry     | Private Registry         |
-| ------------------- | ------------------------ |
-| Docker Hub          | Azure Container Registry |
-| Public Images       | Private Images           |
-| Internet Accessible | Secure Azure Access      |
-
----
-
-# Container Architecture
-
-```text
-Application Source Code
-        │
-        ▼
- Dockerfile
-        │
-        ▼
-Docker Build
-        │
-        ▼
-Docker Image
-        │
-        ▼
-Docker Run
-        │
-        ▼
-Docker Container
-        │
-        ▼
-Port Binding
-        │
-        ▼
-Browser
-```
-
-Example
-
-```text
-nginx Image
-      │
-docker run
-      │
-Container
-      │
-Port Mapping
-80:80
-      │
-Browser
-```
-
-Command
-
-```bash
-docker run -d -p 80:80 nginx:latest
-```
-
----
-
-# Docker Components
-
-## Docker Image
+This project is provided as a learning and deployment template for Azure container workloads.
 
 Read-only template containing:
 
