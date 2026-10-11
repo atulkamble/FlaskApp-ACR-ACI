@@ -25,6 +25,134 @@ FlaskApp-ACR-ACI/
 └── azure-pipelines.yml
 ```
 
+## End-to-End Deployment Walkthrough
+
+### 1. Start Docker Desktop
+
+Start Docker Desktop and wait until it reports that the Docker Engine is running. Open a terminal or PowerShell window and check the tools:
+
+```powershell
+docker --version
+docker buildx version
+az version
+```
+
+### 2. Create the Azure Container Registry
+
+In the Azure portal, open **Container registries** and select **Create**. Create the registry with the name `atulkamble` in your subscription and resource group. Its login server should be:
+
+```text
+atulkamble.azurecr.io
+```
+
+If you specifically need registry username/password authentication, open the registry's **Settings > Access keys** and enable **Admin user**. Admin credentials are secrets: do not paste them into source files, README files, pipeline YAML, or chat. Prefer Microsoft Entra authentication (`az acr login`) or a managed identity/service connection where supported, and disable the admin user when it is no longer needed.
+
+Sign in and authenticate Docker to ACR:
+
+```powershell
+az login
+az acr login --name atulkamble
+```
+
+### 3. Get the Application Source
+
+For a new checkout:
+
+```powershell
+git clone https://github.com/atulkamble/FlaskApp-ACR-ACI.git
+cd FlaskApp-ACR-ACI
+code .
+```
+
+For an existing checkout, update it instead:
+
+```powershell
+cd FlaskApp-ACR-ACI
+git pull
+code .
+```
+
+### 4. Run the Flask App Locally
+
+Create and activate a virtual environment, install the dependencies, and start the app:
+
+```powershell
+python -m venv .venv
+```
+
+PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+macOS/Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+Then, on either platform:
+
+```powershell
+pip install -r requirements.txt
+python app.py
+```
+
+Open the landing page at [http://localhost:5000](http://localhost:5000). The health endpoint is [http://localhost:5000/health](http://localhost:5000/health).
+
+### 5. Build and Push a Multi-Platform Image
+
+Build for AMD64 and ARM64 and push directly to ACR:
+
+```powershell
+docker buildx build --platform linux/amd64,linux/arm64 -t atulkamble.azurecr.io/cloudnautic/flaskapp:latest --push .
+```
+
+Pull and inspect the pushed image:
+
+```powershell
+docker pull atulkamble.azurecr.io/cloudnautic/flaskapp:latest
+docker images
+```
+
+Run it locally:
+
+```powershell
+docker run -d --name flaskapp -p 5000:5000 atulkamble.azurecr.io/cloudnautic/flaskapp:latest
+docker container ls
+```
+
+Open [http://localhost:5000](http://localhost:5000). To view the container output, use the container name or ID returned by `docker run`:
+
+```powershell
+docker logs flaskapp
+```
+
+Stop, list, and restart the container as needed:
+
+```powershell
+docker container stop flaskapp
+docker container ls
+docker ps -a
+docker container start flaskapp
+```
+
+### 6. Deploy the Image to Azure Container Instances
+
+In the Azure portal:
+
+1. Open **Container instances** and select **Create**.
+2. Choose the subscription, resource group, and container name.
+3. For **Image source**, select **Azure Container Registry**, then select `atulkamble`, the `cloudnautic/flaskapp` image, and the `latest` tag.
+4. Configure the container to use Linux and add a TCP port mapping for port `5000`. Enable a public IP if the app should be reachable from the internet.
+5. Review and create the container instance, then wait for deployment to complete.
+6. Open the instance's **Overview** page and use its assigned IP address with port `5000`. The address shared for this deployment is [http://130.107.46.213:5000](http://130.107.46.213:5000).
+
+The public IP can change when an instance is recreated. If that link stops working, use the current IP shown in the Azure portal.
+
+> **Image name note:** The manual commands above publish `cloudnautic/flaskapp`. The Azure DevOps pipeline below currently publishes `cloudnautic/pythonapp`; update its `imageName` variable if the pipeline should publish the same `flaskapp` image.
+
 ## Prerequisites
 
 - Docker Desktop running
@@ -68,7 +196,7 @@ http://localhost:5000
 ```bash
 docker buildx build \
   --platform linux/amd64 \
-  -t atulkamble.azurecr.io/cloudnautic/pythonapp:latest \
+  -t atulkamble.azurecr.io/cloudnautic/flaskapp:latest \
   --load .
 ```
 
@@ -77,7 +205,7 @@ docker buildx build \
 ```bash
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t atulkamble.azurecr.io/cloudnautic/pythonapp:latest \
+  -t atulkamble.azurecr.io/cloudnautic/flaskapp:latest \
   --push .
 ```
 
@@ -100,18 +228,18 @@ atulkamble.azurecr.io
 az acr repository list --name atulkamble --output table
 az acr repository show-tags \
   --name atulkamble \
-  --repository cloudnautic/pythonapp \
+  --repository cloudnautic/flaskapp \
   --output table
 ```
 
 ## Run Docker Image Locally
 
 ```bash
-docker pull atulkamble.azurecr.io/cloudnautic/pythonapp:latest
+docker pull atulkamble.azurecr.io/cloudnautic/flaskapp:latest
 docker run -d \
-  --name pythonapp \
+  --name flaskapp \
   -p 5000:5000 \
-  atulkamble.azurecr.io/cloudnautic/pythonapp:latest
+  atulkamble.azurecr.io/cloudnautic/flaskapp:latest
 ```
 
 Check:
