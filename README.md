@@ -116,6 +116,22 @@ docker pull atulkamble.azurecr.io/cloudnautic/flaskapp:latest
 docker images
 ```
 
+To export the locally pulled image to a tar archive for transfer or backup:
+
+```powershell
+docker save -o pythonapp.tar atulkamble.azurecr.io/cloudnautic/flaskapp:latest
+ls -lh pythonapp.tar
+```
+
+On the machine where you want to use the image, load it into Docker:
+
+```powershell
+docker load -i pythonapp.tar
+docker images
+```
+
+The loaded image is available locally under the same repository and tag. Ensure it is compatible with the destination machine's CPU architecture.
+
 Run it locally:
 
 ```powershell
